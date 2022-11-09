@@ -12,6 +12,8 @@ set_target_properties(glad dearimgui gueepo2D-engine PROPERTIES FOLDER thirdpart
 
 add_executable(${PROJECT_NAME}
     src/main.cpp
+    src/RoguelikeLayer.h
+    src/RoguelikeLayer.cpp
 )
 
 target_link_directories(${PROJECT_NAME}
