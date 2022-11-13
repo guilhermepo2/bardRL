@@ -11,6 +11,7 @@ public:
 	bool IsTilePassable(int x, int y);
 	int GetWidth() const { return m_width; }
 	int GetHeight() const { return m_height; }
+	gueepo::math::vec2 GetStartingPosition();
 
 protected:
 	void CreateRoom(gueepo::math::rect newRoom);

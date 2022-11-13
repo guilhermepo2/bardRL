@@ -13,6 +13,8 @@ public:
 	void OnRender() override;
 	void OnImGuiRender() override;
 
+protected:
+	void CenterCameraOnPosition(gueepo::math::vec2 position);
 private:
 	gueepo::OrtographicCamera* m_Camera;
 };

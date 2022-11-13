@@ -97,6 +97,14 @@ bool Dungeon::IsTilePassable(int x, int y) {
 	return false;
 }
 
+gueepo::math::vec2 Dungeon::GetStartingPosition() {
+	g2dassert(m_rooms.size() != 0, "getting position when there's no rooms?");
+
+	gueepo::math::vec2 position;
+	gueepo::math::rect firstRoom = m_rooms[0];
+	return firstRoom.GetCenter();
+}
+
 void Dungeon::CreateRoom(gueepo::math::rect newRoom) {
 	for (int x = newRoom.bottomLeft.x; x < newRoom.topRight.x; x++) {
 		for (int y = newRoom.bottomLeft.y; y < newRoom.topRight.y; y++) {
