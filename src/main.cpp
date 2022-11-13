@@ -2,6 +2,8 @@
 #include <gueepo2d.h>
 #include "RoguelikeLayer.h"
 
+#include "Tile.h"
+
 // Who needs project management software?
 // How do you make a roguelike? https://www.gamedeveloper.com/design/how-to-make-a-roguelike
 // 1. character
@@ -16,12 +18,12 @@
 
 class BardRoguelike : public gueepo::Application {
 public:
-	BardRoguelike() : Application("bardRL ", 640, 360) {
+	BardRoguelike() : Application("bardRL ", 1280, 720) {
 		PushLayer(new RoguelikeLayer());
 	}
 	~BardRoguelike() {}
 };
 
 gueepo::Application* gueepo::CreateApplication() {
-	return new BardRoguelike();
+	return new BardRoguelike;
 }

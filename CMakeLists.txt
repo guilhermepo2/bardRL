@@ -14,6 +14,10 @@ add_executable(${PROJECT_NAME}
     src/main.cpp
     src/RoguelikeLayer.h
     src/RoguelikeLayer.cpp
+    src/Tile.h
+    src/Tile.cpp
+    src/Dungeon.h
+    src/Dungeon.cpp
 )
 
 target_link_directories(${PROJECT_NAME}
