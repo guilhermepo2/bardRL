@@ -14,6 +14,11 @@ public:
 
 	bool isMouseOver;
 
+	// Visibility Related
+	bool bBlockVision = false;
+	bool bWasTileDiscovered = false;
+	bool bIsTileVisible = false;
+
 	Tile(int _x, int _y, bool _passable);
 	bool operator==(const Tile& rhs) const;
 };

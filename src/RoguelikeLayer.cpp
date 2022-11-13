@@ -4,6 +4,7 @@
 
 static const int CAMERA_SIZE_X = 320;
 static const int CAMERA_SIZE_Y = 180;
+static const int TILE_SIZE = 16;
 
 static gueepo::SpriteBatcher* batch = nullptr;
 static gueepo::Texture* mainSpriteSheet = nullptr;
@@ -11,6 +12,7 @@ static gueepo::TextureRegion* heroSprite = nullptr;
 
 static gueepo::TextureRegion* wallTexture = nullptr;
 static gueepo::TextureRegion* floorTexture = nullptr;
+static gueepo::TextureRegion* partiallyVisible = nullptr;
 
 static Dungeon* theDungeon = nullptr;
 
@@ -32,12 +34,14 @@ void RoguelikeLayer::OnAttach() {
 	heroSprite = new gueepo::TextureRegion(mainSpriteSheet, 0, 0, 16, 16);
 	wallTexture = new gueepo::TextureRegion(mainSpriteSheet, 16, 64, 16, 16);
 	floorTexture = new gueepo::TextureRegion(mainSpriteSheet, 0, 64, 16, 16);
+	partiallyVisible = new gueepo::TextureRegion(mainSpriteSheet, 32, 64, 16, 16);
 
 	// Creating the Dungeon
 	theDungeon = new Dungeon();
 	theDungeon->GenerateLevel(DUNGEON_WIDTH, DUNGEON_HEIGHT);
 	heroPosition = theDungeon->GetStartingPosition();
 	CenterCameraOnPosition(heroPosition * 16);
+	theDungeon->RefreshVisibility(heroPosition.x, heroPosition.y);
 }
 
 void RoguelikeLayer::OnDetach()
@@ -81,24 +85,28 @@ void RoguelikeLayer::OnInput(const gueepo::InputState& currentInputState) {
 	if (currentInputState.Keyboard.WasKeyPressedThisFrame(gueepo::Keycode::KEYCODE_R)) {
 		theDungeon->GenerateLevel(DUNGEON_WIDTH, DUNGEON_HEIGHT);
 		heroPosition = theDungeon->GetStartingPosition();
-		CenterCameraOnPosition(heroPosition * 16);
+		CenterCameraOnPosition(heroPosition * TILE_SIZE);
 	}
 
 	// moving the hero
 	if (currentInputState.Keyboard.WasKeyPressedThisFrame(gueepo::Keycode::KEYCODE_W)) {
 		heroPosition.y += 1;
+		theDungeon->RefreshVisibility(heroPosition.x, heroPosition.y);
 	}
 	else if (currentInputState.Keyboard.WasKeyPressedThisFrame(gueepo::Keycode::KEYCODE_S)) {
 		heroPosition.y -= 1;
+		theDungeon->RefreshVisibility(heroPosition.x, heroPosition.y);
 	}
 	else if (currentInputState.Keyboard.WasKeyPressedThisFrame(gueepo::Keycode::KEYCODE_A)) {
 		heroPosition.x -= 1;
+		theDungeon->RefreshVisibility(heroPosition.x, heroPosition.y);
 	}
 	else if (currentInputState.Keyboard.WasKeyPressedThisFrame(gueepo::Keycode::KEYCODE_D)) {
 		heroPosition.x += 1;
+		theDungeon->RefreshVisibility(heroPosition.x, heroPosition.y);
 	}
 
-	CenterCameraOnPosition(heroPosition * 16);
+	CenterCameraOnPosition(heroPosition * TILE_SIZE);
 
 }
 
@@ -115,18 +123,24 @@ void RoguelikeLayer::OnRender() {
 
 	for (int x = 0; x < theDungeon->GetWidth(); x++) {
 		for (int y = 0; y < theDungeon->GetHeight(); y++) {
-			if (theDungeon->IsTilePassable(x, y)) {
-				batch->Draw(floorTexture, x * 16, y * 16, 16, 16);
+
+			if (theDungeon->IsTileVisible(x,y)) {
+				if (theDungeon->IsTilePassable(x, y)) {
+					batch->Draw(floorTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+				}
+				else {
+					batch->Draw(wallTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+				}
 			}
-			else {
-				batch->Draw(wallTexture, x * 16, y * 16, 16, 16);
+			else if (theDungeon->IsTileDiscovered(x, y)) {
+				batch->Draw(partiallyVisible, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 			}
 		}
 	}
 
 	// #todo: not really sure why I have to offset this here.
 	// dungeon tiles and the player are drawn and rendered the exact same way
-	batch->Draw(heroSprite, (heroPosition.x * 16) - 8, (heroPosition.y * 16) - 8, 16, 16);
+	batch->Draw(heroSprite, (heroPosition.x * TILE_SIZE) - 8, (heroPosition.y * TILE_SIZE) - 8, TILE_SIZE, TILE_SIZE);
 
 	batch->End();
 }
