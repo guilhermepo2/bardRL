@@ -140,7 +140,7 @@ void RoguelikeLayer::OnRender() {
 
 	// #todo: not really sure why I have to offset this here.
 	// dungeon tiles and the player are drawn and rendered the exact same way
-	batch->Draw(heroSprite, (heroPosition.x * TILE_SIZE) - 8, (heroPosition.y * TILE_SIZE) - 8, TILE_SIZE, TILE_SIZE);
+	batch->Draw(heroSprite, (heroPosition.x * TILE_SIZE), (heroPosition.y * TILE_SIZE), TILE_SIZE, TILE_SIZE);
 
 	batch->End();
 }
