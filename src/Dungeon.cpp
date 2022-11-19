@@ -1,7 +1,7 @@
 #include "Dungeon.h"
 #include "Tile.h"
 
-static const int FOV_MAX_DISTANCE = 999;
+static const int FOV_MAX_DISTANCE = 9;
 
 static int ConvertCoordinatesToIndex(int x, int y, int width, int height) {
 	return (y * width) + x;
@@ -9,6 +9,68 @@ static int ConvertCoordinatesToIndex(int x, int y, int width, int height) {
 
 static bool IsValidCoordinate(int x, int y, int width, int height) {
 	return (((width * y) + x) < width * height) && (((width * y) + x) >= 0);
+}
+
+// ==========================
+// Field of View Stuff
+// https://journal.stuffwithstuff.com/2015/09/07/what-the-hero-sees/
+// ==========================
+void ShadowLine::AddShadowToLine(Shadow shadowToAdd) {
+	// First we have to figure out where to slot the new shadow in the list
+	int index = 0;
+	for (; index < shadows.size(); index++) {
+		// we stop when we hit an intersection point
+		if (shadows[index].start >= shadowToAdd.start) {
+			break;
+		}
+	}
+
+	// we know where the shadow is going to be, now we check if it overlaps the previous or next
+	Shadow previousOverlappedShadow;
+	bool bFoundPrevious = false;
+	if (index > 0 && shadows[index - 1].end > shadowToAdd.start) {
+		previousOverlappedShadow = shadows[index - 1];
+		bFoundPrevious = true;
+	}
+
+	Shadow nextOverlappedShadow;
+	bool bFoundNext = false;
+	if (index < shadows.size() && shadows[index].start < shadowToAdd.end) {
+		nextOverlappedShadow = shadows[index];
+		bFoundNext = true;
+	}
+
+	if (bFoundNext) {
+		if (bFoundPrevious) {
+			// overlaps both, so unify one and delete the other
+			shadows[index - 1].end = shadows[index].end;
+			shadows.erase(index);
+		}
+		else {
+			// overlaps the next one, so unify it with that
+			shadows[index].start = shadowToAdd.start;
+		}
+	}
+	else {
+		if (bFoundPrevious) {
+			// overlaps the previous one, so unify it with that
+			shadows[index - 1].end = shadowToAdd.end;
+		}
+		else {
+			// does not overlap anything, so we have to insert
+			shadows.insert(index, shadowToAdd);
+		}
+	}
+}
+
+bool ShadowLine::IsInShadow(Shadow projection) {
+	for (int i = 0; i < shadows.size(); i++) {
+		if (shadows[i].ContainsOther(projection)) {
+			return true;
+		}
+	}
+
+	return false;
 }
 
 // ==========================
@@ -144,6 +206,17 @@ gueepo::math::vec2 Dungeon::GetStartingPosition() {
 	return firstRoomCenter;
 }
 
+Tile* Dungeon::GetTile(int x, int y) {
+	Tile* t = nullptr;
+
+	if (IsValidCoordinate(x, y, m_width, m_height)) {
+		int index = ConvertCoordinatesToIndex(x, y, m_width, m_height);
+		t = m_map[index];
+	}
+
+	return t;
+}
+
 void Dungeon::CreateRoom(gueepo::math::rect newRoom) {
 	for (int x = newRoom.bottomLeft.x; x < newRoom.topRight.x; x++) {
 		for (int y = newRoom.bottomLeft.y; y < newRoom.topRight.y; y++) {
@@ -193,7 +266,6 @@ void Dungeon::CreateVerticalTunnel(int y1, int y2, int x) {
 // =================================================
 // The intersection between dungeon and field of view.
 // =================================================
-// http://www.adammil.net/blog/v125_roguelike_vision_algorithms.html#raycode
 
 void Dungeon::RefreshVisibility(int x, int y) {
 	if (m_map.size() == 0) {
@@ -208,10 +280,104 @@ void Dungeon::RefreshVisibility(int x, int y) {
 	m_map[startingTileIndex]->bWasTileDiscovered = true;
 	m_map[startingTileIndex]->bIsTileVisible = true;
 
-	// ComputeVisiblity(x, y);
-
-	for (int i = 0; i < m_map.size(); i++) {
-		m_map[i]->bWasTileDiscovered = true;
-		m_map[i]->bIsTileVisible = true;
+	for (int octant = 0; octant < 8; octant++) {
+		RefreshOctant(x, y, octant);
 	}
+}
+
+void Dungeon::RefreshOctant(int x, int y, int octant) {
+	ShadowLine line;
+	bool fullShadow = false;
+
+	for (int row = 1; row < FOV_MAX_DISTANCE; row++) {
+		for (int col = 0; col <= row; col++) {
+			gueepo::math::vec2 octantPosition = ConvertPositionToOctantPosition(row, col, octant);
+			gueepo::math::vec2 position(x + octantPosition.x, y + octantPosition.y);
+			int tileIndex = ConvertCoordinatesToIndex(position.x, position.y, m_width, m_height);
+
+			// it can happen that the index is smaller than zero, or bigger than the room size
+			// because the FoV will try to do its thing and look at positions
+			// its up to us to tell it that there is nothing there...
+			if (tileIndex < 0 || tileIndex >= m_map.size()) {
+				continue;
+			}
+
+			if (m_map[tileIndex] == nullptr) {
+				continue;
+			}
+
+			m_map[tileIndex]->octant = octant;
+
+			if (fullShadow) {
+				m_map[tileIndex]->bIsTileVisible = false;
+			}
+			else {
+				Shadow projection = ProjectTile(row, col);
+				bool bIsVisible = !line.IsInShadow(projection);
+				m_map[tileIndex]->bIsTileVisible = bIsVisible;
+
+				if (bIsVisible) {
+					m_map[tileIndex]->bWasTileDiscovered = true;
+				}
+
+				if (bIsVisible && (!m_map[tileIndex]->isPassable || m_map[tileIndex]->bBlockVision)) {
+					line.AddShadowToLine(projection);
+					fullShadow = line.IsFullShadow();
+				}
+			}
+		}
+	}
+}
+
+gueepo::math::vec2 Dungeon::ConvertPositionToOctantPosition(int row, int col, int octant) {
+
+	gueepo::math::vec2 retVal;
+
+	switch (octant) {
+	case 0:
+		retVal.x = col;
+		retVal.y = row;
+		break;
+	case 1:
+		retVal.x = row;
+		retVal.y = col;
+		break;
+	case 2:
+		retVal.x = row;
+		retVal.y = -col;
+		break;
+	case 3:
+		retVal.x = col;
+		retVal.y = -row;
+		break;
+	case 4:
+		retVal.x = -col;
+		retVal.y = -row;
+		break;
+	case 5:
+		retVal.x = -row;
+		retVal.y = -col;
+		break;
+	case 6:
+		retVal.x = -row;
+		retVal.y = col;
+		break;
+	case 7:
+		retVal.x = -col;
+		retVal.y = row;
+		break;
+	}
+	
+	return retVal;
+
+}
+
+Shadow Dungeon::ProjectTile(int row, int col) {
+	float fRow = static_cast<float>(row);
+	float fCol = static_cast<float>(col);
+
+	float topLeft = (fCol / (fRow + 2));
+	float bottomRight = (fCol + 1) / (fRow + 1);
+
+	return Shadow(topLeft, bottomRight, gueepo::math::vec2(col, row+2), gueepo::math::vec2(col + 1, row + 1));
 }

@@ -1,5 +1,6 @@
 #include "RoguelikeLayer.h"
 #include "Dungeon.h"
+#include "Tile.h"
 #include <imgui.h>
 
 static const int CAMERA_SIZE_X = 320;
@@ -15,6 +16,9 @@ static gueepo::TextureRegion* floorTexture = nullptr;
 static gueepo::TextureRegion* partiallyVisible = nullptr;
 
 static Dungeon* theDungeon = nullptr;
+
+// fonts
+static gueepo::FontSprite* dogicaFont = nullptr;
 
 // Hero
 static gueepo::math::vec2 heroPosition;
@@ -42,6 +46,13 @@ void RoguelikeLayer::OnAttach() {
 	heroPosition = theDungeon->GetStartingPosition();
 	CenterCameraOnPosition(heroPosition * 16);
 	theDungeon->RefreshVisibility(heroPosition.x, heroPosition.y);
+
+	{
+		GUEEPO2D_SCOPED_TIMER("loading fonts");
+		gueepo::Font* dogica = gueepo::Font::CreateFont("./assets/dogica.ttf");
+		dogicaFont = new gueepo::FontSprite(dogica, 8);
+		dogicaFont->SetLineGap(4);
+	}
 }
 
 void RoguelikeLayer::OnDetach()
@@ -133,8 +144,28 @@ void RoguelikeLayer::OnRender() {
 				}
 			}
 			else if (theDungeon->IsTileDiscovered(x, y)) {
+				if (theDungeon->IsTilePassable(x, y)) {
+					batch->Draw(floorTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+				}
+				else {
+					batch->Draw(wallTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+				}
+
 				batch->Draw(partiallyVisible, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
 			}
+
+
+			/*
+			Tile* t = theDungeon->GetTile(x, y);
+			if (t != nullptr) {
+				int octant = t->octant;
+				if (octant >= 0 && octant < 8) {
+					std::string octantText = std::to_string(t->octant);
+					batch->DrawText(dogicaFont, octantText.c_str(), gueepo::math::vec2((x * TILE_SIZE) - 4, (y * TILE_SIZE) - 4), 1.0f, gueepo::Color(1.0f, 1.0f, 1.0f, 1.0f));
+				}
+			}
+			*/
+			
 		}
 	}
 

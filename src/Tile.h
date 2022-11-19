@@ -21,4 +21,7 @@ public:
 
 	Tile(int _x, int _y, bool _passable);
 	bool operator==(const Tile& rhs) const;
+
+	// Debug
+	int octant;
 };
