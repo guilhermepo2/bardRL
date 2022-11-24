@@ -18,7 +18,7 @@
 
 class BardRoguelike : public gueepo::Application {
 public:
-	BardRoguelike() : Application("bardRL ", 1280, 720) {
+	BardRoguelike() : Application("bardRL ", WINDOW_WIDTH, WINDOW_HEIGHT) {
 		PushLayer(new RoguelikeLayer());
 	}
 	~BardRoguelike() {}

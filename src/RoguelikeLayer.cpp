@@ -26,6 +26,37 @@ static gueepo::math::vec2 heroPosition;
 static const int DUNGEON_WIDTH = 60;
 static const int DUNGEON_HEIGHT = 40;
 
+static gueepo::math::vec2 MouseToWorldPosition(gueepo::math::vec2 mousePosition, gueepo::OrtographicCamera camera) {
+	gueepo::math::vec2 worldPosition(mousePosition.x, mousePosition.y);
+	gueepo::math::vec3 cameraPosition = camera.GetPosition();
+
+	int ScreenToCameraRatioX = WINDOW_WIDTH / CAMERA_SIZE_X;
+	int ScreenToCameraRatioY = WINDOW_HEIGHT / CAMERA_SIZE_Y;
+
+	// (0) world is bottom up, mouse is originally top down.
+	worldPosition.y = WINDOW_HEIGHT - worldPosition.y;
+
+	// (1) First Thing, translating the mouse position into the realm of the camera size.
+	worldPosition.x /= ScreenToCameraRatioX;
+	worldPosition.y /= ScreenToCameraRatioY;
+
+	// (2) We have to move half the camera to the left and down.
+	// This sort of makes sense but I'm not certain about the reasoning.
+	worldPosition.x -= (CAMERA_SIZE_X / 2);
+	worldPosition.y -= (CAMERA_SIZE_Y / 2);
+
+	
+	// here's how the camera works...the camera maps the screen size in between -1 and 1 (so, 2)
+	// so if the camera is, let's say, 1.0 moved to the x it moved 320 pixels (if the screen is 640 pixels) to the x
+	int xOffsetInPixels = (CAMERA_SIZE_X * cameraPosition.x) / 2;
+	int yOffsetInPixels = (CAMERA_SIZE_Y * cameraPosition.y) / 2;
+
+	worldPosition.x += xOffsetInPixels;
+	worldPosition.y += yOffsetInPixels;
+
+	return worldPosition;
+}
+
 void RoguelikeLayer::OnAttach() {
 	gueepo::rand::Init();
 	batch = new gueepo::SpriteBatcher();
@@ -69,6 +100,7 @@ void RoguelikeLayer::OnDetach()
 
 void RoguelikeLayer::OnUpdate(float DeltaTime) {
 	
+
 }
 
 void RoguelikeLayer::OnInput(const gueepo::InputState& currentInputState) {
@@ -93,11 +125,13 @@ void RoguelikeLayer::OnInput(const gueepo::InputState& currentInputState) {
 	m_Camera->SetPosition(cameraPosition);
 
 	// Regenerating the dungeon for visualization purposes...
+	/*
 	if (currentInputState.Keyboard.WasKeyPressedThisFrame(gueepo::Keycode::KEYCODE_R)) {
 		theDungeon->GenerateLevel(DUNGEON_WIDTH, DUNGEON_HEIGHT);
 		heroPosition = theDungeon->GetStartingPosition();
 		CenterCameraOnPosition(heroPosition * TILE_SIZE);
 	}
+	*/
 
 	// moving the hero
 	if (currentInputState.Keyboard.WasKeyPressedThisFrame(gueepo::Keycode::KEYCODE_W)) {
@@ -119,6 +153,38 @@ void RoguelikeLayer::OnInput(const gueepo::InputState& currentInputState) {
 
 	CenterCameraOnPosition(heroPosition * TILE_SIZE);
 
+	// Mouse World Position
+	gueepo::math::vec2 mouseWorldPosition = MouseToWorldPosition(currentInputState.Mouse.GetPosition(), *m_Camera);
+
+	// Updating all tiles to see if the mouse is over it. very inneficient, but...
+	Tile* mouseOverTile = nullptr;
+	for (int x = 0; x < theDungeon->GetWidth(); x++) {
+		for (int y = 0; y < theDungeon->GetHeight(); y++) {
+			Tile* t = theDungeon->GetTile(x, y);
+			gueepo::math::vec2 tileWorldPosition(t->x * TILE_SIZE, t->y * TILE_SIZE);
+			gueepo::math::vec2 tileMinPosition(tileWorldPosition.x - TILE_SIZE / 2, tileWorldPosition.y - TILE_SIZE / 2);
+			gueepo::math::vec2 tileMaxPosition(tileWorldPosition.x + TILE_SIZE / 2, tileWorldPosition.y + TILE_SIZE / 2);
+
+			// checking if mouse is in this tile...
+			if (
+				tileMinPosition.x <= mouseWorldPosition.x && tileMaxPosition.x >= mouseWorldPosition.x &&
+				tileMinPosition.y <= mouseWorldPosition.y && tileMaxPosition.y >= mouseWorldPosition.y
+				) {
+				t->isMouseOver = true;
+				mouseOverTile = t;
+			}
+			else {
+				t->isMouseOver = false;
+			}
+		}
+	}
+
+	if (currentInputState.Mouse.WasMouseKeyPressedThisFrame(gueepo::Mousecode::MOUSE_LEFT)) {
+		if (mouseOverTile != nullptr && mouseOverTile->isPassable && mouseOverTile->bIsTileVisible) {
+			LOG_INFO("clicked on tile: ({0}, {1})", mouseOverTile->x, mouseOverTile->y);
+		}
+	}
+
 }
 
 void RoguelikeLayer::OnEvent(gueepo::Event& e)
@@ -137,7 +203,14 @@ void RoguelikeLayer::OnRender() {
 
 			if (theDungeon->IsTileVisible(x,y)) {
 				if (theDungeon->IsTilePassable(x, y)) {
-					batch->Draw(floorTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+					Tile* t = theDungeon->GetTile(x, y);
+					if (t->isMouseOver) {
+						// #todo: ideally this would be its own sprite over the tile, but for now all we have is a red color...
+						batch->Draw(floorTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, gueepo::Color(1.0f, 0.0f, 1.0f, 1.0f));
+					}
+					else {
+						batch->Draw(floorTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);
+					}
 				}
 				else {
 					batch->Draw(wallTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE);

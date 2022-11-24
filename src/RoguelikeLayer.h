@@ -1,6 +1,9 @@
 #pragma once
 #include <gueepo2d.h>
 
+static const int WINDOW_WIDTH = 1280;
+static const int WINDOW_HEIGHT = 720;
+
 class RoguelikeLayer : public gueepo::Layer {
 public:
 	RoguelikeLayer() : Layer("roguelike layer") {}
