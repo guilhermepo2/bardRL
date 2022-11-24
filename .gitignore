@@ -1,1 +1,6 @@
 build/
+*.DS_Store
+
+# clion specifics
+.idea/*
+cmake-build-debug/*

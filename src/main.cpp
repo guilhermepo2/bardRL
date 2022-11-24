@@ -6,9 +6,9 @@
 
 // Who needs project management software?
 // How do you make a roguelike? https://www.gamedeveloper.com/design/how-to-make-a-roguelike
-// 1. character
-// 2. map generation
-// 3. FoV
+// 1. character (ok-ish)
+// 2. map generation (ok-ish, it works, but could use some improvement...)
+// 3. FoV (this is good, actually!)
 // 4. pathfinding
 // 5. monsters
 // 6. combat!
