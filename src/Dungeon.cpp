@@ -7,10 +7,6 @@ static int ConvertCoordinatesToIndex(int x, int y, int width, int height) {
 	return (y * width) + x;
 }
 
-static bool IsValidCoordinate(int x, int y, int width, int height) {
-	return (((width * y) + x) < width * height) && (((width * y) + x) >= 0);
-}
-
 // ==========================
 // Field of View Stuff
 // https://journal.stuffwithstuff.com/2015/09/07/what-the-hero-sees/
@@ -166,9 +162,13 @@ void Dungeon::GenerateLevel(int mapWidth, int mapHeight) {
 	}
 }
 
+bool Dungeon::IsPositionValid(int x, int y) {
+    return (((m_width * y) + x) < m_width * m_height) && (((m_width * y) + x) >= 0);
+}
+
 bool Dungeon::IsTilePassable(int x, int y) {
 	int index = ConvertCoordinatesToIndex(x, y, m_width, m_height);
-	if (IsValidCoordinate(x, y, m_width, m_height) && m_map[index] != nullptr) {
+	if (IsPositionValid(x, y) && m_map[index] != nullptr) {
 		return m_map[index]->isPassable;
 	}
 
@@ -177,7 +177,7 @@ bool Dungeon::IsTilePassable(int x, int y) {
 
 bool Dungeon::IsTileVisible(int x, int y) {
 	int index = ConvertCoordinatesToIndex(x, y, m_width, m_height);
-	if (IsValidCoordinate(x, y, m_width, m_height) && m_map[index] != nullptr) {
+	if (IsPositionValid(x, y) && m_map[index] != nullptr) {
 		return m_map[index]->bIsTileVisible;
 	}
 
@@ -186,7 +186,7 @@ bool Dungeon::IsTileVisible(int x, int y) {
 
 bool Dungeon::IsTileDiscovered(int x, int y) {
 	int index = ConvertCoordinatesToIndex(x, y, m_width, m_height);
-	if (IsValidCoordinate(x, y, m_width, m_height) && m_map[index] != nullptr) {
+	if (IsPositionValid(x, y) && m_map[index] != nullptr) {
 		return m_map[index]->bWasTileDiscovered;
 	}
 
@@ -209,7 +209,7 @@ gueepo::math::vec2 Dungeon::GetStartingPosition() {
 Tile* Dungeon::GetTile(int x, int y) {
 	Tile* t = nullptr;
 
-	if (IsValidCoordinate(x, y, m_width, m_height)) {
+	if (IsPositionValid(x, y)) {
 		int index = ConvertCoordinatesToIndex(x, y, m_width, m_height);
 		t = m_map[index];
 	}
@@ -220,7 +220,7 @@ Tile* Dungeon::GetTile(int x, int y) {
 void Dungeon::CreateRoom(gueepo::math::rect newRoom) {
 	for (int x = newRoom.bottomLeft.x; x < newRoom.topRight.x; x++) {
 		for (int y = newRoom.bottomLeft.y; y < newRoom.topRight.y; y++) {
-			if (!IsValidCoordinate(x, y, m_width, m_height)) {
+			if (!IsPositionValid(x, y)) {
 				continue;
 			}
 
@@ -236,7 +236,7 @@ void Dungeon::CreateRoom(gueepo::math::rect newRoom) {
 void Dungeon::CreateHorizontalTunnel(int x1, int x2, int y) {
 	for (int x = gueepo::math::minimum(x1, x2); x < gueepo::math::maximum(x1, x2) + 1; x++) {
 		
-		if (!IsValidCoordinate(x, y, m_width, m_height)) {
+		if (!IsPositionValid(x, y)) {
 			continue;
 		}
 
@@ -251,7 +251,7 @@ void Dungeon::CreateHorizontalTunnel(int x1, int x2, int y) {
 void Dungeon::CreateVerticalTunnel(int y1, int y2, int x) {
 	for (int y = gueepo::math::minimum(y1, y2); y < gueepo::math::maximum(y1, y2) + 1; y++) {
 
-		if (!IsValidCoordinate(x, y, m_width, m_height)) {
+		if (!IsPositionValid(x, y)) {
 			continue;
 		}
 
@@ -272,7 +272,7 @@ void Dungeon::RefreshVisibility(int x, int y) {
 		return;
 	}
 
-	if (!IsValidCoordinate(x, y, m_width, m_height)) {
+	if (!IsPositionValid(x, y)) {
 		return;
 	}
 

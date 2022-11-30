@@ -24,4 +24,5 @@ public:
 
 	// Debug
 	int octant;
+    bool highlightPathfinding;
 };

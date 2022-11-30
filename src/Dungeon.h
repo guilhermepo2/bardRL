@@ -37,6 +37,7 @@ public:
 	Dungeon();
 	void GenerateLevel(int mapWidth, int mapHeight);
 
+    bool IsPositionValid(int x, int y);
 	bool IsTilePassable(int x, int y);
 	bool IsTileVisible(int x, int y);
 	bool IsTileDiscovered(int x, int y);

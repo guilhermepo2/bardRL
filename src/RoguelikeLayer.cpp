@@ -57,6 +57,139 @@ static gueepo::math::vec2 MouseToWorldPosition(gueepo::math::vec2 mousePosition,
 	return worldPosition;
 }
 
+// ----------------------------------
+// pathfinding stuff... do it here first, and then move it somewhere else.
+
+// a-star algorihtm
+// input: initialPosition: vec2, desiredPosition: vec2
+// output: movements: list<vec2> or tilesOnPath: list<vec2>
+
+// we need a more robust structure for the A*
+struct PathfindingNode {
+    // tile position in the world
+    gueepo::math::vec2 tilePosition;
+    // g_score is the value attributed to this position, based on how good this solution is.
+    // smaller is better.
+    int gScore;
+
+    // do I need a vector with all the previous tiles? no, just the parent.
+    gueepo::vector<gueepo::math::vec2> theRoadSoFar;
+};
+
+// 2022/11/29 - SEEMS to be working, just need to rebuild the path to reach there.
+//      an optimization that can be done is adding the manhattan distance into the gscore
+//      AFAIK that will make the algorithm converge quicker, I THINK the solution will still be optimal, but if it isn't, who cares !!
+static gueepo::vector<gueepo::math::vec2> FindPath(gueepo::math::vec2 initialPosition, gueepo::math::vec2 desiredPosition) {
+    gueepo::vector<gueepo::math::vec2> movements;
+
+    // set of discovered nodes that need to be expanded
+    gueepo::vector<PathfindingNode> openNodes;
+    PathfindingNode theNode;
+    theNode.tilePosition = initialPosition;
+    theNode.gScore = 0;
+    openNodes.add(theNode);
+
+    while(openNodes.size() > 0) {
+        // 1. get current node (the one with the lowest score on openNodes, or next if list is sorted)
+        PathfindingNode currentNode = openNodes[0];
+        openNodes.erase(0);
+
+        gueepo::math::vec2 currentPosition = currentNode.tilePosition;
+        int currentGScore = currentNode.gScore;
+
+        // 2. if we arrived at the goal, we are done.
+        if(currentPosition == desiredPosition) {
+            LOG_INFO("found position... gScore: {0}", currentGScore);
+            gueepo::vector<gueepo::math::vec2> theRoad = currentNode.theRoadSoFar;
+            theRoad.add(currentPosition);
+            movements.clear();
+
+            for(int i = 0; i < theRoad.size() - 1; i++) {
+                movements.add(theRoad[i+1] - theRoad[i]);
+            }
+
+            return movements;
+        }
+
+        // 3. otherwise...
+        // 3.2. expand "current" => look at the neighbors, g_score = g_score(current) + distance(current, neighbor) - distance will always be 1 in this case.
+        // to expand, I simply add/subtract 1 on every direction, and these are the neighbours...
+        // have to check if the position is valid, and if it's passable!
+        gueepo::math::vec2 upNeighbor = currentPosition + gueepo::math::vec2(0, 1);
+        gueepo::math::vec2 downNeighbor = currentPosition + gueepo::math::vec2(0, -1);
+        gueepo::math::vec2 rightNeighbor = currentPosition + gueepo::math::vec2(1, 0);
+        gueepo::math::vec2 leftNeighbor = currentPosition + gueepo::math::vec2(-1, 0);
+        gueepo::vector<gueepo::math::vec2> validNeighbors;
+
+        if(
+                theDungeon->IsPositionValid(upNeighbor.x, upNeighbor.y) &&
+                theDungeon->IsTilePassable(upNeighbor.x, upNeighbor.y)
+                ) {
+            validNeighbors.add(upNeighbor);
+        }
+
+        if(theDungeon->IsPositionValid(downNeighbor.x, downNeighbor.y) &&
+                theDungeon->IsTilePassable(downNeighbor.x, downNeighbor.y)) {
+            validNeighbors.add(downNeighbor);
+        }
+
+        if(theDungeon->IsPositionValid(rightNeighbor.x, rightNeighbor.y) &&
+                theDungeon->IsTilePassable(rightNeighbor.x, rightNeighbor.y)) {
+            validNeighbors.add(rightNeighbor);
+        }
+
+        if(theDungeon->IsPositionValid(leftNeighbor.x, leftNeighbor.y) &&
+                theDungeon->IsTilePassable(leftNeighbor.x, leftNeighbor.y)) {
+            validNeighbors.add(leftNeighbor);
+        }
+
+        for(int i = 0; i < validNeighbors.size(); i++) {
+            int tentativeGScore = currentGScore + 1; // add h(position, goal) ?
+
+            // First Pass, let's not have repeated positions...
+            bool isPositionOpen = false;
+            for(int j = 0; j < openNodes.size(); j++) {
+                if(openNodes[j].tilePosition == validNeighbors[i]) {
+                    isPositionOpen = true;
+                    false;
+                }
+            }
+
+            if(!isPositionOpen) { // Second, we try inserting.
+                bool inserted = false;
+                for(int j = 0; j < openNodes.size(); j++) {
+                    if(openNodes[j].gScore > tentativeGScore) {
+                        inserted = true;
+                        PathfindingNode theNode;
+                        theNode.tilePosition = validNeighbors[i];
+                        theNode.gScore = tentativeGScore;
+                        theNode.theRoadSoFar = currentNode.theRoadSoFar;
+                        theNode.theRoadSoFar.add(currentPosition);
+
+                        openNodes.insert(j, theNode );
+                        break;
+                    }
+                }
+
+                if(!inserted) {
+                    PathfindingNode theNode;
+                    theNode.tilePosition = validNeighbors[i];
+                    theNode.gScore = tentativeGScore;
+                    theNode.theRoadSoFar = currentNode.theRoadSoFar;
+                    theNode.theRoadSoFar.add(currentPosition);
+
+                    openNodes.add(theNode);
+                }
+            }
+        } // i iterator on validNeighbors
+    } // while loop
+
+    return movements;
+}
+
+
+// ----------------------------------
+
 void RoguelikeLayer::OnAttach() {
 	gueepo::rand::Init();
 	batch = new gueepo::SpriteBatcher();
@@ -182,6 +315,21 @@ void RoguelikeLayer::OnInput(const gueepo::InputState& currentInputState) {
 	if (currentInputState.Mouse.WasMouseKeyPressedThisFrame(gueepo::Mousecode::MOUSE_LEFT)) {
 		if (mouseOverTile != nullptr && mouseOverTile->isPassable && mouseOverTile->bIsTileVisible) {
 			LOG_INFO("clicked on tile: ({0}, {1})", mouseOverTile->x, mouseOverTile->y);
+            // do a pathfinding here from the player current position to the clicked tile...
+            // and render it green!
+            gueepo::math::vec2 tilePosition(mouseOverTile->x, mouseOverTile->y);
+            gueepo::vector<gueepo::math::vec2> moves = FindPath(heroPosition, tilePosition);
+
+            gueepo::math::vec2 pathPosition = heroPosition;
+            for(int i = 0; i < moves.size(); i++) {
+                LOG_INFO("move {0}: ({1}, {2})", i, moves[i].x, moves[i].y);
+                pathPosition += moves[i];
+                Tile* t = theDungeon->GetTile(pathPosition.x, pathPosition.y);
+
+                if(t != nullptr) {
+                    t->highlightPathfinding = true;
+                }
+            }
 		}
 	}
 
@@ -204,7 +352,10 @@ void RoguelikeLayer::OnRender() {
 			if (theDungeon->IsTileVisible(x,y)) {
 				if (theDungeon->IsTilePassable(x, y)) {
 					Tile* t = theDungeon->GetTile(x, y);
-					if (t->isMouseOver) {
+
+                    if(t->highlightPathfinding) {
+                        batch->Draw(floorTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, gueepo::Color(0.0f, 1.0f, 1.0f, 1.0f));
+                    } else if (t->isMouseOver) {
 						// #todo: ideally this would be its own sprite over the tile, but for now all we have is a red color...
 						batch->Draw(floorTexture, x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE, gueepo::Color(1.0f, 0.0f, 1.0f, 1.0f));
 					}

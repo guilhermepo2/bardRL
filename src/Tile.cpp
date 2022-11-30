@@ -1,6 +1,6 @@
 #include "Tile.h"
 
-Tile::Tile(int _x, int _y, bool _passable) : x(_x), y(_y), isPassable(_passable), hasTreasure(false), isExit(false) {}
+Tile::Tile(int _x, int _y, bool _passable) : x(_x), y(_y), isPassable(_passable), hasTreasure(false), isExit(false), highlightPathfinding(false) {}
 
 bool Tile::operator==(const Tile& rhs) const {
 	return this->x == rhs.x &&
